@@ -413,6 +413,14 @@ PREFECT_LOGGING_ORION_MAX_LOG_SIZE = Setting(
 )
 """The maximum size in bytes for a single log."""
 
+PREFECT_CANCEL_CHECK_QUERY_INTERVAL = Setting(
+    float,
+    default=30,
+)
+"""
+The interval for checking for cancellation of the flow run, in seconds.
+"""
+
 PREFECT_AGENT_QUERY_INTERVAL = Setting(
     float,
     default=5,
