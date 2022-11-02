@@ -86,7 +86,11 @@ from prefect.utilities.asyncutils import (
     run_sync_in_worker_thread,
 )
 from prefect.utilities.callables import parameters_to_args_kwargs
-from prefect.utilities.collections import isiterable, visit_collection
+from prefect.utilities.collections import (
+    isiterable,
+    visit_collection,
+    visit_collection_async,
+)
 from prefect.utilities.hashing import stable_hash
 from prefect.utilities.pydantic import PartialModel
 
@@ -791,12 +795,12 @@ async def collect_task_run_inputs(expr: Any, max_depth: int = -1) -> Set[TaskRun
 
     inputs = set()
 
-    def add_futures_and_states_to_inputs(obj):
+    async def add_futures_and_states_to_inputs(obj):
         if isinstance(obj, allow_failure):
             obj = obj.unwrap()
 
         if isinstance(obj, PrefectFuture):
-            run_async_from_worker_thread(obj._wait_for_submission)
+            await obj._wait_for_submission()
             inputs.add(TaskRunResult(id=obj.task_run.id))
         elif isinstance(obj, State):
             if obj.state_details.task_run_id:
@@ -806,8 +810,7 @@ async def collect_task_run_inputs(expr: Any, max_depth: int = -1) -> Set[TaskRun
             if state and state.state_details.task_run_id:
                 inputs.add(TaskRunResult(id=state.state_details.task_run_id))
 
-    await run_sync_in_worker_thread(
-        visit_collection,
+    await visit_collection_async(
         expr,
         visit_fn=add_futures_and_states_to_inputs,
         return_data=False,
@@ -1368,7 +1371,7 @@ async def resolve_inputs(
         UpstreamTaskError: If any of the upstream states are not `COMPLETED`
     """
 
-    def resolve_input(expr):
+    async def resolve_input(expr):
         state = None
         should_allow_failure = False
 
@@ -1379,7 +1382,7 @@ async def resolve_inputs(
         if isinstance(expr, Quote):
             return expr.unquote()
         elif isinstance(expr, PrefectFuture):
-            state = run_async_from_worker_thread(expr._wait)
+            state = await expr._wait()
         elif isinstance(expr, State):
             state = expr
         else:
@@ -1395,10 +1398,13 @@ async def resolve_inputs(
             )
 
         # Only retrieve the result if requested as it may be expensive
-        return state.result(raise_on_failure=False, fetch=True) if return_data else None
+        return (
+            await state.result(raise_on_failure=False, fetch=True)
+            if return_data
+            else None
+        )
 
-    return await run_sync_in_worker_thread(
-        visit_collection,
+    return await visit_collection_async(
         parameters,
         visit_fn=resolve_input,
         return_data=return_data,
