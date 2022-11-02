@@ -292,7 +292,10 @@ class ConcurrentTaskRunner(BaseTaskRunner):
         except BaseException as exc:
             self._results[key] = await exception_to_crashed_state(exc)
 
-        self._result_events[key].set()
+        # ensure we always call set in whichever thread the event
+        # was created in
+        result_event = self._result_events[key]
+        result_event._event._loop.call_soon_threadsafe(result_event.set)
 
     async def _get_run_result(
         self, key: UUID, timeout: float = None
@@ -303,19 +306,8 @@ class ConcurrentTaskRunner(BaseTaskRunner):
         result = None  # Return value on timeout
 
         with anyio.move_on_after(timeout):
-
-            # Attempt to use the event to wait for the result. This is much more efficient
-            # than the spin-lock that follows but does not work if the wait call
-            # happens from an event loop in a different thread than the one from which
-            # the event was created
-            result_event = self._result_events[key]
-            if result_event._event._loop == asyncio.get_running_loop():
-                await result_event.wait()
-
+            await self._result_events[key].wait()
             result = self._results.get(key)
-            while not result:
-                await anyio.sleep(0)  # yield to other tasks
-                result = self._results.get(key)
 
         return result
 
