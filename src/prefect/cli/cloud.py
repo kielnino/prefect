@@ -31,7 +31,7 @@ from prefect.client.cloud import CloudUnauthorizedError, get_cloud_client
 from prefect.settings import (
     PREFECT_API_KEY,
     PREFECT_API_URL,
-    PREFECT_CLOUD_URL,
+    PREFECT_CLOUD_API_URL,
     load_profiles,
     save_profiles,
     update_current_profile,
@@ -118,7 +118,7 @@ async def serve_login_api(cancel_scope):
 
 def build_url_from_workspace(workspace: Dict) -> str:
     return (
-        f"{PREFECT_CLOUD_URL.value()}"
+        f"{PREFECT_CLOUD_API_URL.value()}"
         f"/accounts/{workspace['account_id']}"
         f"/workspaces/{workspace['workspace_id']}"
     )
