@@ -40,6 +40,7 @@ from prefect.orion.schemas.schedules import (
     IntervalSchedule,
     RRuleSchedule,
 )
+from prefect.utilities.asyncutils import run_sync_in_worker_thread
 from prefect.utilities.collections import listrepr
 from prefect.utilities.dispatch import get_registry_for_type, lookup_type
 from prefect.utilities.filesystem import set_default_ignore_file
@@ -757,7 +758,9 @@ async def build(
         else:
             raise exc
     try:
-        flow = prefect.utilities.importtools.import_object(entrypoint)
+        flow = run_sync_in_worker_thread(
+            prefect.utilities.importtools.import_object, entrypoint
+        )
         if isinstance(flow, Flow):
             app.console.print(f"Found flow {flow.name!r}", style="green")
         else:
