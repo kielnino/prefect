@@ -406,7 +406,7 @@ async def login(
                 [(workspace, workspace.handle) for workspace in workspaces],
             )
         else:
-            workspace = current_workspace
+            workspace = current_workspace or workspaces[0]
 
     update_current_profile(
         {
